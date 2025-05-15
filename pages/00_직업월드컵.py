@@ -1,11 +1,13 @@
 import streamlit as st
 import pandas as pd
 import random
+import os
+from pathlib import Path
 
 # ----------------------------------------------------------------------------
 # 1. 데이터 로드 함수
 # ----------------------------------------------------------------------------
-def load_job_data(path="jobs.csv") -> pd.DataFrame:
+def load_job_data(path: str = None) -> pd.DataFrame:
     """
     jobs.csv 예시 컬럼:
       - job_id
@@ -17,7 +19,17 @@ def load_job_data(path="jobs.csv") -> pd.DataFrame:
       - university_curriculum (JSON 형식 문자열)
       - required_highschool_subjects (예: 'Math;Physics;English')
     """
-    df = pd.read_csv(path)
+    # 기본 경로 설정: 이 파일 기준 상위 디렉토리
+    if path is None:
+        base_dir = Path(__file__).resolve().parent.parent
+        path = base_dir / "jobs.csv"
+
+    try:
+        df = pd.read_csv(path)
+    except FileNotFoundError:
+        st.error(f"데이터 파일을 찾을 수 없습니다: {path}\n프로젝트 루트에 'jobs.csv'가 있는지 확인해주세요.")
+        st.stop()
+
     # university_curriculum 컬럼을 딕셔너리로 변환
     df['university_curriculum'] = df['university_curriculum'].apply(pd.eval)
     df['related_majors'] = df['related_majors'].str.split(';')
@@ -31,7 +43,6 @@ def load_job_data(path="jobs.csv") -> pd.DataFrame:
 def make_bracket(jobs: list) -> list:
     """16개의 직업을 랜덤 혹은 MBTI 필터 후 토너먼트 대진표로 변환"""
     random.shuffle(jobs)
-    # 8경기씩 16강
     matches = [(jobs[i], jobs[i+1]) for i in range(0, len(jobs), 2)]
     return matches
 
@@ -43,28 +54,33 @@ def main():
     st.title("🎉 직업 월드컵")
 
     # 유저 MBTI 선택
-    mbti = st.sidebar.selectbox("내 MBTI를 선택하세요", [
-        'ISTJ','ISFJ','INFJ','INTJ','ISTP','ISFP','INFP','INTP',
-        'ESTP','ESFP','ENFP','ENTP','ESTJ','ESFJ','ENFJ','ENTJ'
-    ])
+    mbti = st.sidebar.selectbox(
+        "내 MBTI를 선택하세요", [
+            'ISTJ','ISFJ','INFJ','INTJ','ISTP','ISFP','INFP','INTP',
+            'ESTP','ESFP','ENFP','ENTP','ESTJ','ESFJ','ENFJ','ENTJ'
+        ]
+    )
 
-    # 데이터 불러오기
-    df = load_job_data()
-    # MBTI 필터
+    # 데이터 파일 업로드 옵션
+    uploaded_file = st.sidebar.file_uploader("직업 데이터(jobs.csv) 업로드", type=['csv'])
+    if uploaded_file:
+        df = load_job_data(uploaded_file)
+    else:
+        df = load_job_data()
+
+    # MBTI 필터링 및 후보 추출
     filtered = df[df['mbti_types'].apply(lambda mbtis: mbti in mbtis)]
-    # 16개로 추출
     if len(filtered) >= 16:
         candidates = filtered.sample(16)
     else:
         candidates = df.sample(16)
 
-    # 대진표 생성
+    # 세션 상태 초기화
     if 'matches' not in st.session_state:
         st.session_state.matches = make_bracket(candidates['job_id'].tolist())
-        st.session_state.winners = []
         st.session_state.round = 0
 
-    # 토너먼트 진행
+    # 라운드 진행
     rounds = ['16강', '8강', '4강', '결승']
     current_round = rounds[st.session_state.round]
     st.header(f"현재 단계: {current_round}")
@@ -84,17 +100,18 @@ def main():
                 next_winners.append(b)
         st.markdown("---")
 
+    # 다음 라운드 혹은 결과 표시
     if len(next_winners) == len(st.session_state.matches):
-        # 승자를 다음 라운드로 세션 스테이트에 저장
-        st.session_state.matches = [(next_winners[i], next_winners[i+1]) 
-                                     for i in range(0, len(next_winners), 2)]
+        st.session_state.matches = [
+            (next_winners[i], next_winners[i+1])
+            for i in range(0, len(next_winners), 2)
+        ]
         st.session_state.round += 1
-        # 4강 이후엔 matches 크기를 줄임
         if st.session_state.round >= len(rounds):
-            # 최종 우승자
             champion_id = next_winners[0]
             show_job_detail(df, champion_id)
-        st.experimental_rerun()
+        else:
+            st.experimental_rerun()
 
 # ----------------------------------------------------------------------------
 # 4. 상세 정보 표시
@@ -111,8 +128,7 @@ def show_job_detail(df: pd.DataFrame, job_id: int):
         st.write(f"- {major}")
 
     st.subheader("대학 교육과정 예시")
-    curriculum: dict = job.university_curriculum
-    for year, courses in curriculum.items():
+    for year, courses in job.university_curriculum.items():
         st.write(f"**{year}학년**")
         for course in courses:
             st.write(f" - {course}")
