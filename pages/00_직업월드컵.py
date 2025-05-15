@@ -1,133 +1,128 @@
 import streamlit as st
+import pandas as pd
 import random
 
-# 예시 직업 리스트 (8개)
-career_data = {
-    "데이터 과학자": {
-        "description": "빅데이터를 분석하고 인공지능 모델을 설계하는 전문가.",
-        "major": "통계학, 컴퓨터공학",
-        "roadmap": [
-            "고등학교: 수학, 과학, Python 기초",
-            "대학교: 통계학/컴공 전공, 머신러닝 수강",
-            "활동: 데이터 분석 대회, 인턴 경험"
-        ]
-    },
-    "광고 기획자": {
-        "description": "광고 전략을 기획하고 소비자와 소통하는 콘텐츠를 만드는 직업.",
-        "major": "광고홍보학, 미디어커뮤니케이션학",
-        "roadmap": [
-            "고등학교: 글쓰기, 디자인, 사회 과목",
-            "대학교: 미디어 전공 + 포트폴리오",
-            "활동: 광고 공모전, 캠페인 기획"
-        ]
-    },
-    "심리상담사": {
-        "description": "심리적 문제를 가진 사람들을 상담하고 치유를 돕는 전문가.",
-        "major": "심리학, 상담학",
-        "roadmap": [
-            "고등학교: 생윤, 사회문화 중심",
-            "대학교: 심리학 전공 + 상담실습",
-            "활동: 또래상담, 상담봉사"
-        ]
-    },
-    "교사": {
-        "description": "학생들에게 지식과 가치를 전달하는 교육 전문가.",
-        "major": "교육학, 각 교과교육과",
-        "roadmap": [
-            "고등학교: 국어, 수학, 사회 등 희망 과목",
-            "대학교: 교직 이수 → 임용시험 준비",
-            "활동: 교육봉사, 멘토링"
-        ]
-    },
-    "간호사": {
-        "description": "환자를 돌보고 치료를 보조하는 의료 전문가.",
-        "major": "간호학",
-        "roadmap": [
-            "고등학교: 생명과학, 화학, CPR 실습",
-            "대학교: 간호학과 → 국가고시",
-            "활동: 병원 실습, 보건소 봉사"
-        ]
-    },
-    "콘텐츠 크리에이터": {
-        "description": "영상, 이미지, 글 등을 제작해 온라인에 게시하는 창작자.",
-        "major": "미디어학, 영상학",
-        "roadmap": [
-            "고등학교: 영상편집, 발표력 향상",
-            "대학교: 영상 전공 + 포트폴리오",
-            "활동: 유튜브 채널, 콘텐츠 대회"
-        ]
-    },
-    "변호사": {
-        "description": "법률 자문 및 소송을 담당하는 법률 전문가.",
-        "major": "법학, 로스쿨",
-        "roadmap": [
-            "고등학교: 사회, 논술, 시사탐구",
-            "대학교: 법학과 → 로스쿨 진학",
-            "활동: 모의재판, 로펌 인턴"
-        ]
-    },
-    "게임 개발자": {
-        "description": "게임을 기획·디자인하고 프로그래밍하는 창의적 기술자.",
-        "major": "컴퓨터공학, 게임공학",
-        "roadmap": [
-            "고등학교: 정보과목, C언어, 수학",
-            "대학교: 게임전공, 팀 프로젝트 중심",
-            "활동: 게임잼, 앱 개발"
-        ]
-    }
-}
+# ----------------------------------------------------------------------------
+# 1. 데이터 로드 함수
+# ----------------------------------------------------------------------------
+def load_job_data(path="jobs.csv") -> pd.DataFrame:
+    """
+    jobs.csv 예시 컬럼:
+      - job_id
+      - job_name
+      - image_url
+      - mbti_types (예: 'INTJ,ENTP')
+      - description
+      - related_majors (예: 'Computer Science;AI Engineering')
+      - university_curriculum (JSON 형식 문자열)
+      - required_highschool_subjects (예: 'Math;Physics;English')
+    """
+    df = pd.read_csv(path)
+    # university_curriculum 컬럼을 딕셔너리로 변환
+    df['university_curriculum'] = df['university_curriculum'].apply(pd.eval)
+    df['related_majors'] = df['related_majors'].str.split(';')
+    df['required_highschool_subjects'] = df['required_highschool_subjects'].str.split(';')
+    df['mbti_types'] = df['mbti_types'].str.split(',')
+    return df
 
-# 초기 셋업
-if "round" not in st.session_state:
-    st.session_state.round = 8
-    st.session_state.candidates = random.sample(list(career_data.keys()), 8)
-    st.session_state.next_round = []
-    st.session_state.winner = None
+# ----------------------------------------------------------------------------
+# 2. 경기 매치업 생성
+# ----------------------------------------------------------------------------
+def make_bracket(jobs: list) -> list:
+    """16개의 직업을 랜덤 혹은 MBTI 필터 후 토너먼트 대진표로 변환"""
+    random.shuffle(jobs)
+    # 8경기씩 16강
+    matches = [(jobs[i], jobs[i+1]) for i in range(0, len(jobs), 2)]
+    return matches
 
-st.title("🏆 직업 월드컵")
+# ----------------------------------------------------------------------------
+# 3. 메인 앱
+# ----------------------------------------------------------------------------
+def main():
+    st.set_page_config(page_title="직업 월드컵", layout="wide")
+    st.title("🎉 직업 월드컵")
 
-# 월드컵 로직
-if st.session_state.round >= 2:
-    st.header(f"{st.session_state.round}강")
+    # 유저 MBTI 선택
+    mbti = st.sidebar.selectbox("내 MBTI를 선택하세요", [
+        'ISTJ','ISFJ','INFJ','INTJ','ISTP','ISFP','INFP','INTP',
+        'ESTP','ESFP','ENFP','ENTP','ESTJ','ESFJ','ENFJ','ENTJ'
+    ])
 
-    cols = st.columns(2)
-    for i in range(0, len(st.session_state.candidates), 2):
-        left = st.session_state.candidates[i]
-        right = st.session_state.candidates[i + 1]
+    # 데이터 불러오기
+    df = load_job_data()
+    # MBTI 필터
+    filtered = df[df['mbti_types'].apply(lambda mbtis: mbti in mbtis)]
+    # 16개로 추출
+    if len(filtered) >= 16:
+        candidates = filtered.sample(16)
+    else:
+        candidates = df.sample(16)
 
-        with cols[0]:
-            if st.button(left, key=f"{left}_{st.session_state.round}"):
-                st.session_state.next_round.append(left)
+    # 대진표 생성
+    if 'matches' not in st.session_state:
+        st.session_state.matches = make_bracket(candidates['job_id'].tolist())
+        st.session_state.winners = []
+        st.session_state.round = 0
 
-        with cols[1]:
-            if st.button(right, key=f"{right}_{st.session_state.round}"):
-                st.session_state.next_round.append(right)
+    # 토너먼트 진행
+    rounds = ['16강', '8강', '4강', '결승']
+    current_round = rounds[st.session_state.round]
+    st.header(f"현재 단계: {current_round}")
 
-        # 한 페어만 표시 후 종료
-        break
+    next_winners = []
+    for idx, (a, b) in enumerate(st.session_state.matches):
+        col1, col2 = st.columns(2)
+        job_a = df[df.job_id == a].iloc[0]
+        job_b = df[df.job_id == b].iloc[0]
+        with col1:
+            st.image(job_a.image_url, caption=job_a.job_name)
+            if st.button(f"{job_a.job_name} 승리", key=f"a{idx}"):
+                next_winners.append(a)
+        with col2:
+            st.image(job_b.image_url, caption=job_b.job_name)
+            if st.button(f"{job_b.job_name} 승리", key=f"b{idx}"):
+                next_winners.append(b)
+        st.markdown("---")
 
-    # 다음 라운드 조건 확인
-    if len(st.session_state.next_round) == st.session_state.round // 2:
-        st.session_state.candidates = st.session_state.next_round
-        st.session_state.next_round = []
-        st.session_state.round //= 2
-
-# 우승자 발표
-elif st.session_state.round == 1 and len(st.session_state.candidates) == 1:
-    st.session_state.winner = st.session_state.candidates[0]
-    st.header("🏅 최종 우승 직업!")
-
-    winner = st.session_state.winner
-    info = career_data[winner]
-
-    st.subheader(f"🎓 {winner}")
-    st.markdown(f"**직업 설명**: {info['description']}")
-    st.markdown(f"**관련 전공**: {info['major']}")
-    st.markdown("**진학 로드맵:**")
-    for step in info["roadmap"]:
-        st.write(f"• {step}")
-
-    if st.button("🔁 다시 시작하기"):
-        for key in ["round", "candidates", "next_round", "winner"]:
-            st.session_state.pop(key)
+    if len(next_winners) == len(st.session_state.matches):
+        # 승자를 다음 라운드로 세션 스테이트에 저장
+        st.session_state.matches = [(next_winners[i], next_winners[i+1]) 
+                                     for i in range(0, len(next_winners), 2)]
+        st.session_state.round += 1
+        # 4강 이후엔 matches 크기를 줄임
+        if st.session_state.round >= len(rounds):
+            # 최종 우승자
+            champion_id = next_winners[0]
+            show_job_detail(df, champion_id)
         st.experimental_rerun()
+
+# ----------------------------------------------------------------------------
+# 4. 상세 정보 표시
+# ----------------------------------------------------------------------------
+def show_job_detail(df: pd.DataFrame, job_id: int):
+    st.header("🏆 최종 선택된 직업 분석")
+    job = df[df.job_id == job_id].iloc[0]
+
+    st.subheader(f"직업: {job.job_name}")
+    st.write(job.description)
+
+    st.subheader("관련 학과")
+    for major in job.related_majors:
+        st.write(f"- {major}")
+
+    st.subheader("대학 교육과정 예시")
+    curriculum: dict = job.university_curriculum
+    for year, courses in curriculum.items():
+        st.write(f"**{year}학년**")
+        for course in courses:
+            st.write(f" - {course}")
+
+    st.subheader("필수 고등학교 과목")
+    for subj in job.required_highschool_subjects:
+        st.write(f"- {subj}")
+
+# ----------------------------------------------------------------------------
+# 앱 실행
+# ----------------------------------------------------------------------------
+if __name__ == "__main__":
+    main()
