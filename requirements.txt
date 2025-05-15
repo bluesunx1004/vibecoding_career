@@ -1,3 +1,8 @@
-plotly 
-folium 
-koreanize_matplotlib
+streamlit
+pdf2image
+python-pptx
+pillow
+poppler-utils
+koreanize-matplotlib
+scikit-learn
+seaborn
