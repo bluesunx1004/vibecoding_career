@@ -1,89 +1,100 @@
 import streamlit as st
 import pandas as pd
 import random
-import os
-from pathlib import Path
 
 # ----------------------------------------------------------------------------
-# 1. 데이터 로드 함수
+# 1. 직업 데이터 정의 (유망·인기 직업 30가지)
 # ----------------------------------------------------------------------------
-def load_job_data(path: str = None) -> pd.DataFrame:
-    """
-    jobs.csv 예시 컬럼:
-      - job_id
-      - job_name
-      - image_url
-      - mbti_types (예: 'INTJ,ENTP')
-      - description
-      - related_majors (예: 'Computer Science;AI Engineering')
-      - university_curriculum (JSON 형식 문자열)
-      - required_highschool_subjects (예: 'Math;Physics;English')
-    """
-    # 기본 경로 설정: 이 파일 기준 상위 디렉토리
-    if path is None:
-        base_dir = Path(__file__).resolve().parent.parent
-        path = base_dir / "jobs.csv"
+JOB_DEFS = [
+    ("AI 엔지니어", ["컴퓨터공학", "AI융합학과"]),
+    ("데이터 사이언티스트", ["통계학", "데이터사이언스"]),
+    ("UX 디자이너", ["디자인학", "HCI"]),
+    ("소프트웨어 엔지니어", ["컴퓨터공학", "소프트웨어공학"]),
+    ("클라우드 엔지니어", ["컴퓨터공학", "클라우드컴퓨팅"]),
+    ("사이버 보안 전문가", ["정보보호학", "컴퓨터공학"]),
+    ("로봇공학 엔지니어", ["로봇공학", "메카트로닉스"]),
+    ("바이오인포매틱스 연구원", ["생명공학", "바이오인포매틱스"]),
+    ("환경공학자", ["환경공학", "토목공학"]),
+    ("금융 분석가", ["경영학", "금융공학"]),
+    ("디지털 마케팅 전문가", ["경영학", "광고홍보학"]),
+    ("블록체인 개발자", ["컴퓨터공학", "블록체인학과"]),
+    ("제품 관리자", ["산업공학", "경영학"]),
+    ("의료 데이터 분석가", ["의공학", "데이터사이언스"]),
+    ("IT 컨설턴트", ["경영정보학", "컴퓨터공학"]),
+    ("VR/AR 개발자", ["컴퓨터공학", "게임공학"]),
+    ("게임 개발자", ["게임공학", "컴퓨터공학"]),
+    ("SAP 컨설턴트", ["산업공학", "경영정보학"]),
+    ("모바일 앱 개발자", ["컴퓨터공학", "소프트웨어융합학과"]),
+    ("네트워크 엔지니어", ["전자공학", "통신공학"]),
+    ("머신러닝 엔지니어", ["컴퓨터공학", "AI융합학과"]),
+    ("전기자동차 엔지니어", ["기계공학", "전기공학"]),
+    ("드론 조종사", ["항공우주공학", "무인기공학"]),
+    ("우주항공 엔지니어", ["항공우주공학", "기계공학"]),
+    ("그린 에너지 연구원", ["신재생에너지공학", "환경공학"]),
+    ("스마트 팩토리 엔지니어", ["산업공학", "메카트로닉스"]),
+    ("증강 현실 연구원", ["컴퓨터공학", "디자인학"]),
+    ("스마트 시티 기획자", ["도시공학", "산업공학"]),
+    ("헬스케어 IT 전문가", ["의공학", "정보보호학"]),
+    ("IoT 개발자", ["컴퓨터공학", "전기공학"]),
+]
 
-    try:
-        df = pd.read_csv(path)
-    except FileNotFoundError:
-        st.error(f"데이터 파일을 찾을 수 없습니다: {path}\n프로젝트 루트에 'jobs.csv'가 있는지 확인해주세요.")
-        st.stop()
+MBTI_ALL = ['ISTJ','ISFJ','INFJ','INTJ','ISTP','ISFP','INFP','INTP',
+            'ESTP','ESFP','ENFP','ENTP','ESTJ','ESFJ','ENFJ','ENTJ']
+CURRICULUM = {
+    "1학년": ["기초수학", "기초프로그래밍"],
+    "2학년": ["자료구조", "선형대수"],
+    "3학년": ["전공심화", "캡스톤프로젝트"],
+    "4학년": ["인턴십", "졸업논문"],
+}
+HS_SUBJECTS = ["수학", "영어", "과학"]
 
-    # university_curriculum 컬럼을 딕셔너리로 변환
-    df['university_curriculum'] = df['university_curriculum'].apply(pd.eval)
-    df['related_majors'] = df['related_majors'].str.split(';')
-    df['required_highschool_subjects'] = df['required_highschool_subjects'].str.split(';')
-    df['mbti_types'] = df['mbti_types'].str.split(',')
-    return df
+# Build DataFrame
+def load_job_data() -> pd.DataFrame:
+    jobs = []
+    for idx, (name, majors) in enumerate(JOB_DEFS, start=1):
+        jobs.append({
+            "job_id": idx,
+            "job_name": name,
+            "image_url": "https://via.placeholder.com/150",
+            "mbti_types": MBTI_ALL,
+            "description": f"{name} 직업 설명입니다.",
+            "related_majors": majors,
+            "university_curriculum": CURRICULUM,
+            "required_highschool_subjects": HS_SUBJECTS,
+        })
+    return pd.DataFrame(jobs)
 
 # ----------------------------------------------------------------------------
-# 2. 경기 매치업 생성
+# 토너먼트 대진표 생성
 # ----------------------------------------------------------------------------
 def make_bracket(jobs: list) -> list:
-    """16개의 직업을 랜덤 혹은 MBTI 필터 후 토너먼트 대진표로 변환"""
     random.shuffle(jobs)
-    matches = [(jobs[i], jobs[i+1]) for i in range(0, len(jobs), 2)]
-    return matches
+    return [(jobs[i], jobs[i+1]) for i in range(0, len(jobs), 2)]
 
 # ----------------------------------------------------------------------------
-# 3. 메인 앱
+# 메인 앱
 # ----------------------------------------------------------------------------
 def main():
     st.set_page_config(page_title="직업 월드컵", layout="wide")
     st.title("🎉 직업 월드컵")
 
-    # 유저 MBTI 선택
-    mbti = st.sidebar.selectbox(
-        "내 MBTI를 선택하세요", [
-            'ISTJ','ISFJ','INFJ','INTJ','ISTP','ISFP','INFP','INTP',
-            'ESTP','ESFP','ENFP','ENTP','ESTJ','ESFJ','ENFJ','ENTJ'
-        ]
-    )
+    # MBTI 선택
+    mbti = st.sidebar.selectbox("내 MBTI를 선택하세요", MBTI_ALL)
 
-    # 데이터 파일 업로드 옵션
-    uploaded_file = st.sidebar.file_uploader("직업 데이터(jobs.csv) 업로드", type=['csv'])
-    if uploaded_file:
-        df = load_job_data(uploaded_file)
-    else:
-        df = load_job_data()
+    # 데이터 로드
+    df = load_job_data()
 
-    # MBTI 필터링 및 후보 추출
+    # MBTI 필터 후 16개 추출
     filtered = df[df['mbti_types'].apply(lambda mbtis: mbti in mbtis)]
-    if len(filtered) >= 16:
-        candidates = filtered.sample(16)
-    else:
-        candidates = df.sample(16)
+    candidates = filtered.sample(16) if len(filtered) >= 16 else df.sample(16)
 
-    # 세션 상태 초기화
+    # 세션 초기화
     if 'matches' not in st.session_state:
         st.session_state.matches = make_bracket(candidates['job_id'].tolist())
         st.session_state.round = 0
 
-    # 라운드 진행
     rounds = ['16강', '8강', '4강', '결승']
-    current_round = rounds[st.session_state.round]
-    st.header(f"현재 단계: {current_round}")
+    st.header(f"현재 단계: {rounds[st.session_state.round]}")
 
     next_winners = []
     for idx, (a, b) in enumerate(st.session_state.matches):
@@ -100,21 +111,16 @@ def main():
                 next_winners.append(b)
         st.markdown("---")
 
-    # 다음 라운드 혹은 결과 표시
     if len(next_winners) == len(st.session_state.matches):
-        st.session_state.matches = [
-            (next_winners[i], next_winners[i+1])
-            for i in range(0, len(next_winners), 2)
-        ]
+        st.session_state.matches = [(next_winners[i], next_winners[i+1]) for i in range(0, len(next_winners), 2)]
         st.session_state.round += 1
         if st.session_state.round >= len(rounds):
-            champion_id = next_winners[0]
-            show_job_detail(df, champion_id)
+            show_job_detail(df, next_winners[0])
         else:
             st.experimental_rerun()
 
 # ----------------------------------------------------------------------------
-# 4. 상세 정보 표시
+# 결과 상세 정보
 # ----------------------------------------------------------------------------
 def show_job_detail(df: pd.DataFrame, job_id: int):
     st.header("🏆 최종 선택된 직업 분석")
@@ -129,7 +135,7 @@ def show_job_detail(df: pd.DataFrame, job_id: int):
 
     st.subheader("대학 교육과정 예시")
     for year, courses in job.university_curriculum.items():
-        st.write(f"**{year}학년**")
+        st.write(f"**{year}**")
         for course in courses:
             st.write(f" - {course}")
 
@@ -138,7 +144,7 @@ def show_job_detail(df: pd.DataFrame, job_id: int):
         st.write(f"- {subj}")
 
 # ----------------------------------------------------------------------------
-# 앱 실행
+# 실행
 # ----------------------------------------------------------------------------
 if __name__ == "__main__":
     main()
